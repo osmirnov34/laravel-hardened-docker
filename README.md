@@ -29,3 +29,23 @@ Each directive below is tagged so you can tell hardening from pragmatism at a gl
 | ⬜ **Omitted** | Present in the OWASP example but intentionally left out — rationale given. |
 
 ---
+
+## `php.ini` (production)
+
+File: [`docker/production/php/production/php.ini`](docker/production/php/production/php.ini)
+
+### Error handling & logging
+
+[OWASP · PHP error handling](https://cheatsheetseries.owasp.org/cheatsheets/PHP_Configuration_Cheat_Sheet.html#php-error-handling)
+
+| Directive | Value | Tag | Rationale |
+|-----------|-------|-----|-----------|
+| `expose_php` | `Off` | ✅ | Removes the PHP version from the `X-Powered-By` header, reducing stack fingerprinting. |
+| `error_reporting` | `E_ALL` | ✅ | Report every error level; never silently drop signal. |
+| `display_errors` | `Off` | ✅ | Rendering errors into the HTTP response leaks paths, code structure and data. Logs only. |
+| `display_startup_errors` | `Off` | ✅ | Same, for PHP/extension initialization errors. |
+| `log_errors` | `On` | ✅ | Since errors aren't shown to users, they must be captured in logs. |
+| `ignore_repeated_errors` | `Off` | ✅ | Don't collapse repeated errors — collapsing can hide a burst indicating an attack or bug. |
+| `error_log` | `/proc/self/fd/2` | ⚠️ | OWASP writes to a file path; in a container, logs go to stdout/stderr and are collected by the runtime/orchestrator rather than a file inside the container. |
+| `html_errors` | `Off` | ✅ | Error output isn't wrapped in HTML — avoids XSS-via-error-output and keeps logs clean. |
+| `zend.exception_ignore_args` | `On` | ✅ | Keeps function arguments out of exception stack traces, where secrets and PII often appear. |
