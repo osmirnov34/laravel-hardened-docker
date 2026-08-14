@@ -85,11 +85,24 @@ Kept in a separate overlay: no security standard covers OPcache. Sizing comes fr
 The sizing values are marked `measured: TBD` and still need a reading from `opcache_get_status(false)`
 on a warmed image. The overlay assumes `docker-php-ext-install opcache`; without it, nothing applies.
 
+## Application
+
+Configured in [`bootstrap/app.php`](bootstrap/app.php). Cheat sheet targets Laravel ≤10's
+`App\Http\Kernel`; entries below are translated onto 11+'s middleware configuration.
+
+✅ per the cheat sheet · ⚠️ deviation · ➕ beyond the cheat sheet · ⬜ deliberately skipped
+
+| Area | Where | |
+|---|---|---|
+| Host header validation ([WSTG-INPV-17](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection)) | [`trustHosts()`](bootstrap/app.php#L15) — opt-in; unset, forged `Host` headers reach `url()`/`route()` | ➕ |
+
 ## References
 
 - [OWASP PHP Configuration Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/PHP_Configuration_Cheat_Sheet.html)
 - [PHP: `php.ini-production`](https://github.com/php/php-src/blob/PHP-8.5/php.ini-production)
 - [PHP: OPcache runtime configuration](https://www.php.net/manual/en/opcache.configuration.php)
+- [OWASP Laravel Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Laravel_Cheat_Sheet.html)
+- [OWASP WSTG-INPV-17: Testing for Host Header Injection](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection)
 
 ## License
 
