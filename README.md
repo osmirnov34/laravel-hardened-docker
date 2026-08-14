@@ -51,10 +51,45 @@ options cover code that calls `session_start()` directly.
 | `session.sid_length`, `session.sid_bits_per_character` | set explicitly | left at default | PHP 8.4 deprecated changing either one. The defaults already yield 128 bits of entropy, which meets the session ID requirement. |
 | `session.referer_check` | enabled | left off | PHP 8.4 deprecated any non-empty value. Cross-origin protection comes from Laravel's `VerifyCsrfToken` and `samesite=Strict`. |
 
+## Performance
+
+Kept in a separate overlay: no security standard covers OPcache. Sizing comes from
+`opcache_get_status()` on a built image, everything else from the
+[PHP manual](https://www.php.net/manual/en/opcache.configuration.php).
+
+✅ per the manual · ⚠️ deviation · ➕ beyond the manual · ⬜ deliberately skipped
+
+| Area | Options | |
+|---|---|---|
+| Activation | `opcache.enable=1`, `opcache.enable_cli=0` — CLI pays off only for long-running workers | ✅ |
+| Sizing | `memory_consumption=256`, `interned_strings_buffer=16` (drawn from that 256), `max_accelerated_files=20000` (rounds up to 32531) | ⚠️ |
+| Invalidation | `validate_timestamps=0` — code cannot change inside an immutable image. `revalidate_freq`, `max_wasted_percentage` kept explicit but inert | ✅ |
+| Bytecode | `save_comments=1` — annotation-driven frameworks and PHPUnit break without it | ✅ |
+| JIT | `opcache.jit=disable`, `jit_buffer_size=0` | ⚠️ |
+| Platform | `huge_code_pages=0` — host transparent huge pages cannot be assumed | ✅ |
+| OPcache API | `restrict_api=/nonexistent/opcache-api` | ➕ |
+| On-disk cache | `opcache.file_cache` | ⬜ |
+| Preloading | `opcache.preload`, `opcache.preload_user` | ⬜ |
+| Tenancy checks | `validate_permission=0`, `validate_root=0` — one user per container, no chroot | ✅ |
+
+### Deviations
+
+| Option | Manual | Here | Reason |
+|---|---|---|---|
+| `opcache.jit` | tracing JIT, "recommended for most users" | `disable` | Laravel requests are I/O- and bootstrap-bound, so JIT buys little while adding runtime-generated native code to the attack surface. `disable` rather than `off`, which stays switchable through `ini_set()`. |
+| Sizing values | 128M / 8M / 10000 | 256M / 16M / 20000 | Laravel plus `vendor/` outgrows the defaults. Placeholders pending a real reading. |
+| `opcache.restrict_api` | unrestricted | path no application script matches | Blocks `opcache_reset()` from injected or uploaded files. Free here: with `validate_timestamps=0` a deploy is a new container, never a cache reset. |
+| `opcache.file_cache` | available | unset | Read back at startup, so a writable cache directory becomes code execution. An immutable image gains nothing from it. |
+| `opcache.preload` | available | unset | The largest win available, but preloaded code runs at FPM startup as `preload_user`, which the manual refuses to default to root. Opt in per project. |
+
+The sizing values are marked `measured: TBD` and still need a reading from `opcache_get_status(false)`
+on a warmed image. The overlay assumes `docker-php-ext-install opcache`; without it, nothing applies.
+
 ## References
 
 - [OWASP PHP Configuration Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/PHP_Configuration_Cheat_Sheet.html)
 - [PHP: `php.ini-production`](https://github.com/php/php-src/blob/PHP-8.5/php.ini-production)
+- [PHP: OPcache runtime configuration](https://www.php.net/manual/en/opcache.configuration.php)
 
 ## License
 
