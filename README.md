@@ -55,3 +55,7 @@ options cover code that calls `session_start()` directly.
 
 - [OWASP PHP Configuration Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/PHP_Configuration_Cheat_Sheet.html)
 - [PHP: `php.ini-production`](https://github.com/php/php-src/blob/PHP-8.5/php.ini-production)
+
+## License
+
+[MIT](LICENSE)
