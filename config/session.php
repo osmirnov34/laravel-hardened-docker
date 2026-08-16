@@ -38,6 +38,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Session Absolute Lifetime
+    |--------------------------------------------------------------------------
+    |
+    | Hard ceiling on a session's total lifetime, in minutes, measured from
+    | login rather than from the last request — `lifetime` above only resets
+    | an idle timer, so a continuously active session never expires on its
+    | own. Enforced by App\Http\Middleware\EnforceSessionAbsoluteTimeout,
+    | per OWASP ASVS 5.0.0 §7.3.2 (Absolute Maximum Session Lifetime).
+    |
+    | ASVS 5 leaves the duration to the application's own risk analysis.
+    | 720 (12h) comes from ASVS 4.0.3 §3.3.2, which did mandate a number;
+    | size it to your own risk profile.
+    |
+    */
+
+    'absolute_lifetime' => (int) env('SESSION_ABSOLUTE_LIFETIME', 720),
+
+    /*
+    |--------------------------------------------------------------------------
     | Session Encryption
     |--------------------------------------------------------------------------
     |
