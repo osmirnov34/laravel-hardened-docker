@@ -94,7 +94,8 @@ Configured in [`bootstrap/app.php`](bootstrap/app.php). Cheat sheet targets Lara
 
 | Area | Where | |
 |---|---|---|
-| Host header validation ([WSTG-INPV-17](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection)) | [`trustHosts()`](bootstrap/app.php#L15) — opt-in; unset, forged `Host` headers reach `url()`/`route()` | ➕ |
+| Host header validation ([WSTG-INPV-17](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection)) | [`trustHosts()`](bootstrap/app.php#L16) — opt-in; unset, forged `Host` headers reach `url()`/`route()` | ➕ |
+| Absolute session lifetime ([ASVS 5.0.0 §7.3.2](https://asvs.dev/v5.0.0/V7-Session-Management/)) | [`EnforceSessionAbsoluteTimeout`](app/Http/Middleware/EnforceSessionAbsoluteTimeout.php) appended to the `web` group ([`bootstrap/app.php`](bootstrap/app.php#L17)); sized by `session.absolute_lifetime` — Laravel has no built-in equivalent | ➕ |
 
 ## References
 
@@ -103,6 +104,7 @@ Configured in [`bootstrap/app.php`](bootstrap/app.php). Cheat sheet targets Lara
 - [PHP: OPcache runtime configuration](https://www.php.net/manual/en/opcache.configuration.php)
 - [OWASP Laravel Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Laravel_Cheat_Sheet.html)
 - [OWASP WSTG-INPV-17: Testing for Host Header Injection](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection)
+- [OWASP ASVS 5.0.0 — V7 Session Management](https://asvs.dev/v5.0.0/V7-Session-Management/)
 
 ## License
 
