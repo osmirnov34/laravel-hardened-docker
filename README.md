@@ -8,11 +8,25 @@ A reference production build of **Laravel 13 on PHP 8.5**, hardened along the
 ```
 docker/
 └── php/
+    ├── Dockerfile
     └── production/
         └── conf.d/
             ├── 20-opcache.ini
             └── zz-owasp-hardening.ini
 ```
+
+## Container image
+
+Built by [`docker/php/Dockerfile`](docker/php/Dockerfile), following the
+[OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html).
+Most of its 14 rules govern the *runtime*, not the build file; the table below maps only the rules
+this Dockerfile actually carries, filled in as each part of the image is built.
+
+✅ carried here · ⚠️ deviation · ➕ beyond the cheat sheet
+
+| Rule | Lands in | |
+|---|---|---|
+| #13 Enhance supply chain security | **Dockerfile** — pinned base image (tag + digest) | ✅ |
 
 ## PHP configuration
 
@@ -132,6 +146,7 @@ changed; everything unlisted stays at the scaffold default.
 
 ## References
 
+- [OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html)
 - [OWASP PHP Configuration Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/PHP_Configuration_Cheat_Sheet.html)
 - [PHP: `php.ini-production`](https://github.com/php/php-src/blob/PHP-8.5/php.ini-production)
 - [PHP: OPcache runtime configuration](https://www.php.net/manual/en/opcache.configuration.php)
