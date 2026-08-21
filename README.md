@@ -85,6 +85,11 @@ Kept in a separate overlay: no security standard covers OPcache. Sizing comes fr
 The sizing values are marked `measured: TBD` and still need a reading from `opcache_get_status(false)`
 on a warmed image. The overlay assumes `docker-php-ext-install opcache`; without it, nothing applies.
 
+### Forced HTTPS scheme
+
+`URL::forceScheme('https')` in [`AppServiceProvider`](app/Providers/AppServiceProvider.php), gated to
+production, forces every generated URL — `route()`, `asset()`, signed links — to `https://`.
+
 ### Eloquent lazy loading
 
 `Model::preventLazyLoading()` in [`AppServiceProvider`](app/Providers/AppServiceProvider.php) turns an
