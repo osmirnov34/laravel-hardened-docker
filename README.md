@@ -113,12 +113,27 @@ Configured in [`bootstrap/app.php`](bootstrap/app.php). Cheat sheet targets Lara
 | Host header validation ([WSTG-INPV-17](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection)) | [`trustHosts()`](bootstrap/app.php#L16) — opt-in; unset, forged `Host` headers reach `url()`/`route()` | ➕ |
 | Absolute session lifetime ([ASVS 5.0.0 §7.3.2](https://asvs.dev/v5.0.0/V7-Session-Management/)) | [`EnforceSessionAbsoluteTimeout`](app/Http/Middleware/EnforceSessionAbsoluteTimeout.php) appended to the `web` group ([`bootstrap/app.php`](bootstrap/app.php#L17)); sized by `session.absolute_lifetime` — Laravel has no built-in equivalent | ➕ |
 
+## Environment
+
+[`.env.prod.example`](.env.prod.example) is Laravel's stock `.env.example` with the lines below
+changed; everything unlisted stays at the scaffold default.
+
+| Option | Stock scaffold | Here | Reason |
+|---|---|---|---|
+| `APP_ENV` | `local` | `production` | Gates Laravel's own production guards: the artisan confirmation prompt on destructive commands, and providers that skip production. |
+| `APP_DEBUG` | `true` | `false` | Debug output renders stack traces, environment values and absolute paths into error responses. |
+| `SESSION_LIFETIME` | `120` | `15` | Inactivity timeout. [Laravel Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Laravel_Cheat_Sheet.html) puts it at 15 minutes; [ASVS 5.0.0 §7.3.1](https://asvs.dev/v5.0.0/V7-Session-Management/) requires the timeout but leaves the duration to your own risk analysis. The absolute cap of [§7.3.2](https://asvs.dev/v5.0.0/V7-Session-Management/), which Laravel has no equivalent for, is `session.absolute_lifetime`. |
+| `SESSION_ENCRYPT` | `false` | `true` | [Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#session-id-life-cycle) requires encrypting the session repository when sessions hold sensitive data. A reference build cannot know what a session will hold, so it encrypts unconditionally: a leaked dump, replica or backup then yields no `_token` or authenticated user. Rotating `APP_KEY` logs everyone out. |
+| `SESSION_SECURE_COOKIE` | unset | `true` | `Secure` is mandatory per [Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#secure-attribute), and [Laravel Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Laravel_Cheat_Sheet.html) puts `true` on HTTPS-only systems. Unset leaves it to the request scheme. |
+| `SESSION_SAME_SITE` | `lax` | `strict` | [Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#samesite-attribute): "must explicitly set `SameSite=Strict` (preferred) or `SameSite=Lax`". `lax` still sends the cookie on top-level cross-site GETs; `strict` withholds it entirely, layering on `VerifyCsrfToken`. |
+
 ## References
 
 - [OWASP PHP Configuration Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/PHP_Configuration_Cheat_Sheet.html)
 - [PHP: `php.ini-production`](https://github.com/php/php-src/blob/PHP-8.5/php.ini-production)
 - [PHP: OPcache runtime configuration](https://www.php.net/manual/en/opcache.configuration.php)
 - [OWASP Laravel Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Laravel_Cheat_Sheet.html)
+- [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
 - [OWASP WSTG-INPV-17: Testing for Host Header Injection](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection)
 - [OWASP ASVS 5.0.0 — V7 Session Management](https://asvs.dev/v5.0.0/V7-Session-Management/)
 
