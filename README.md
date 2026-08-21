@@ -85,6 +85,17 @@ Kept in a separate overlay: no security standard covers OPcache. Sizing comes fr
 The sizing values are marked `measured: TBD` and still need a reading from `opcache_get_status(false)`
 on a warmed image. The overlay assumes `docker-php-ext-install opcache`; without it, nothing applies.
 
+### Eloquent lazy loading
+
+`Model::preventLazyLoading()` in [`AppServiceProvider`](app/Providers/AppServiceProvider.php) turns an
+accidental N+1 into a reported fault instead of a silent one.
+
+| Environment | Behaviour |
+|---|---|
+| Non-production | throws `LazyLoadingViolationException` — surfaces in development, fails the test suite |
+| Production | logs at `warning` with model and relation, request proceeds |
+| Model not yet persisted or just created | ignored, as in the framework default |
+
 ## Application
 
 Configured in [`bootstrap/app.php`](bootstrap/app.php). Cheat sheet targets Laravel ≤10's
