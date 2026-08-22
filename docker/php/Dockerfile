@@ -21,7 +21,8 @@ RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
 
 COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
 
-WORKDIR /var/www
+ENV APP_HOME=/var/www
+WORKDIR $APP_HOME
 
 COPY composer.json composer.lock ./
 
@@ -54,6 +55,6 @@ RUN mkdir -p \
     bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache && chmod -R 700 storage bootstrap/cache
 
-COPY --from=assets-builder --chown=www-data:www-data /app/public/build /var/www/public/build
+COPY --from=assets-builder --chown=www-data:www-data /app/public/build $APP_HOME/public/build
 
 RUN composer dump-autoload --optimize --no-dev
