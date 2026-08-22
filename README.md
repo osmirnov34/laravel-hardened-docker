@@ -10,9 +10,11 @@ docker/
 └── php/
     ├── Dockerfile
     └── production/
-        └── conf.d/
-            ├── 20-opcache.ini
-            └── zz-owasp-hardening.ini
+        ├── conf.d/
+        │   ├── 20-opcache.ini
+        │   └── zz-owasp-hardening.ini
+        └── php-fpm.d/
+            └── zz-www.conf
 ```
 
 ## Container image
@@ -72,6 +74,41 @@ options cover code that calls `session_start()` directly.
 | `memory_limit` | 128M | 512M | Composer autoloading, Eloquent and queue workers regularly exceed 128M. |
 | `session.sid_length`, `session.sid_bits_per_character` | set explicitly | left at default | PHP 8.4 deprecated changing either one. The defaults already yield 128 bits of entropy, which meets the session ID requirement. |
 | `session.referer_check` | enabled | left off | PHP 8.4 deprecated any non-empty value. Cross-origin protection comes from Laravel's `VerifyCsrfToken` and `samesite=Strict`. |
+
+## FPM pool
+
+[`php-fpm.d/zz-www.conf`](docker/php/production/php-fpm.d/zz-www.conf) overrides the pool shipped by
+the `php:*-fpm` image; the `zz-` prefix loads it last. Tracked against the
+[PHP-FPM configuration reference](https://www.php.net/manual/en/install.fpm.configuration.php).
+
+✅ per the manual · ⚠️ deviation · ➕ beyond the manual · ⬜ deliberately skipped
+
+| Area | Options | |
+|---|---|---|
+| Process manager | `pm=dynamic`, `pm.max_children=6`, `pm.start_servers=2`, `pm.min_spare_servers=1`, `pm.max_spare_servers=3`, `pm.max_requests=500` — starting point, size against the container's memory limit and load-test results | ➕ |
+| Connection queue | `listen.backlog=1024` — headroom for bursts past `pm.max_children` before the kernel refuses new connections | ⚠️ |
+| Hung requests | `request_terminate_timeout=35s` — kills a worker stuck past `max_execution_time` | ⚠️ |
+| Slow requests | `request_slowlog_timeout=5s`, `slowlog=/proc/self/fd/2` — dumps a backtrace for anything running past 5s | ⚠️ |
+| Worker/access logging | `catch_workers_output=yes`, `decorate_workers_output=no`, `access.log=/proc/self/fd/2` — worker stdout/stderr and per-request access logs to stderr, per container logging convention | ⚠️ |
+| Monitoring endpoints | `pm.status_path=/status`, `ping.path=/ping`, `ping.response=pong` — restrict at the reverse-proxy/ingress, not reachable directly | ⚠️ |
+| Extension allowlist | `security.limit_extensions=.php` — blocks FastCGI from executing anything but `.php` through this pool | ⚠️ |
+| Environment | `clear_env=no` — all container env vars reach PHP workers | ⚠️ |
+
+### Deviations
+
+| Option | Manual default | Here | Reason |
+|---|---|---|---|
+| `listen.backlog` | `511` on Linux | `1024` | More headroom for connection bursts to queue at the socket instead of failing immediately when all workers are busy. |
+| `request_terminate_timeout` | `0` — off | `35s` | Backstop for `max_execution_time=30` (`zz-owasp-hardening.ini`): a stuck worker gets killed at the FPM level if PHP's own timeout fails to fire. |
+| `request_slowlog_timeout`, `slowlog` | `0` — off; `#INSTALL_PREFIX#/log/php-fpm.log.slow` | `5s`; `/proc/self/fd/2` | Surfaces slow requests without waiting for `request_terminate_timeout` to kill them; logged to stderr, per container logging convention. |
+| `catch_workers_output` | `no` — stdout/stderr go to `/dev/null` | `yes` | Worker output (uncaught errors, `var_dump`, extension warnings) reaches the container's own log stream instead of being discarded. |
+| `decorate_workers_output` | `yes` — prefixes each line with worker/date info | `no` | Bare log lines, since `catch_workers_output` already routes through stderr with container-level timestamps. |
+| `access.log` | not set — no access log | `/proc/self/fd/2` | Per-request access log, to stderr per container logging convention. |
+| `pm.status_path`, `ping.path` | `none` — no URI recognized | `/status`, `/ping` | Enables health checks and process-pool metrics for the orchestrator; must not be exposed past the reverse proxy. `ping.response` is left at its default `pong`. |
+| `security.limit_extensions` | `.php .phar` | `.php` | Nothing in this pool serves a `.phar` over FastCGI; narrowing the allowlist removes it as an attack surface. |
+| `clear_env` | `Yes` — workers see only variables passed via `env[]` | `no` | Laravel/phpdotenv reads config through `getenv()`/`$_ENV`, and the env surface grows with every new config key or package. An `env[]` allowlist would silently break the app on a forgotten key. The boundary is enforced upstream: only inject into the container what the app should see. |
+| `security.limit_extensions` | `.php .phar` | `.php` | Nothing in this pool serves a `.phar` over FastCGI; narrowing the allowlist removes it as an attack surface. |
+| `pm`, `pm.max_children`, `pm.start_servers`, `pm.min_spare_servers`, `pm.max_spare_servers`, `pm.max_requests` | mostly no default — required; `max_requests` defaults to `0` (endless) | `dynamic`, `6`, `2`, `1`, `3`, `500` | `dynamic` scales with load better than `static`'s fixed count. Sizing is a starting point — right-size against the container's memory limit and load tests. `max_requests` recycles workers, capping any single leak's blast radius. |
 
 ## Performance
 
@@ -158,6 +195,7 @@ changed; everything unlisted stays at the scaffold default.
 - [OWASP PHP Configuration Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/PHP_Configuration_Cheat_Sheet.html)
 - [PHP: `php.ini-production`](https://github.com/php/php-src/blob/PHP-8.5/php.ini-production)
 - [PHP: OPcache runtime configuration](https://www.php.net/manual/en/opcache.configuration.php)
+- [PHP: FPM configuration reference](https://www.php.net/manual/en/install.fpm.configuration.php)
 - [OWASP Laravel Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Laravel_Cheat_Sheet.html)
 - [OWASP Error Handling Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html)
 - [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
