@@ -26,7 +26,15 @@ this Dockerfile actually carries, filled in as each part of the image is built.
 
 | Rule | Lands in | |
 |---|---|---|
-| #13 Enhance supply chain security | **Dockerfile** — pinned base image (tag + digest) | ✅ |
+| #13 Enhance supply chain security | **Dockerfile** — pinned base images (tag + digest); refreshing the digest is a repo-level concern, out of scope for this file | ✅ |
+
+Both `FROM` lines pin a tag *and* an `@sha256:` digest. Docker resolves the digest and ignores the
+tag, so builds are reproducible; the tag documents the intended version and bounds a future refresh
+to the same minor line.
+
+A pinned digest never picks up upstream patches on its own. Pinning gives integrity, not freshness —
+the update process that supplies the latter (Renovate, Dependabot) is repository-level and is not
+configured here.
 
 ## PHP configuration
 
