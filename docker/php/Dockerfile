@@ -58,3 +58,38 @@ RUN mkdir -p \
 COPY --from=assets-builder --chown=www-data:www-data /app/public/build $APP_HOME/public/build
 
 RUN composer dump-autoload --optimize --no-dev
+
+FROM php:8.5-fpm-alpine3.24@sha256:9dc81f4086ea5402227a6bcc489b04b4baba12394624d9621faa92ed812fb8ee AS production
+
+ARG TZ=UTC
+
+RUN apk add --no-cache fcgi tzdata \
+    && cp /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo "$TZ" > /etc/timezone \
+    && apk del tzdata
+
+COPY --from=app-base /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
+COPY --from=app-base /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
+
+RUN sed -i '/^user = /d' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i '/^group = /d' /usr/local/etc/php-fpm.d/www.conf
+
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+
+COPY --chown=www-data:www-data --chmod=400 docker/php/production/conf.d/ /usr/local/etc/php/conf.d/
+COPY --chown=www-data:www-data --chmod=400 docker/php/production/php-fpm.d/zz-www.conf /usr/local/etc/php-fpm.d/zz-www.conf
+
+ENV APP_HOME=/var/www
+
+WORKDIR $APP_HOME
+
+COPY --from=app-base --chown=www-data:www-data $APP_HOME $APP_HOME
+COPY --from=app-base --chown=www-data:www-data $APP_HOME/storage $APP_HOME/storage-init
+
+RUN rm -f $APP_HOME/composer.lock \
+    && chmod 755 /usr/local/bin/php-entrypoint
+
+USER www-data
+ENTRYPOINT ["/usr/local/bin/php-entrypoint"]
+EXPOSE 9000
+CMD ["php-fpm"]
