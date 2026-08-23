@@ -1,0 +1,40 @@
+services:
+    nginx:
+        build:
+            context: .
+            dockerfile: docker/php/Dockerfile
+            target: nginx-production
+        restart: "no"
+        depends_on:
+            php-fpm:
+                condition: service_healthy
+        networks:
+            - backend
+        ports:
+            - "${NGINX_HTTP_PORT:-8081}:8081"
+            - "${NGINX_HTTPS_PORT:-8443}:8443"
+        healthcheck:
+            test: [ "CMD", "wget", "--spider", "-q", "http://127.0.0.1:8081/" ]
+            interval: 10s
+            timeout: 3s
+            retries: 3
+            start_period: 5s
+
+    php-fpm:
+        build:
+            context: .
+            dockerfile: docker/php/Dockerfile
+            target: production
+        restart: "no"
+        networks:
+            - backend
+        healthcheck:
+            test: [ "CMD-SHELL", "SCRIPT_NAME=/ping SCRIPT_FILENAME=/ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q pong || exit 1" ]
+            interval: 10s
+            timeout: 3s
+            retries: 3
+            start_period: 10s
+
+networks:
+    backend:
+        driver: bridge
