@@ -28,6 +28,7 @@ this Dockerfile actually carries, filled in as each part of the image is built.
 
 | Rule | Lands in | |
 |---|---|---|
+| #2 Set a user | **Dockerfile** — `USER www-data` before `ENTRYPOINT`; the app process never runs as root | ✅ |
 | #13 Enhance supply chain security | **Dockerfile** — pinned base images (tag + digest); refreshing the digest is a repo-level concern, out of scope for this file | ✅ |
 
 Both `FROM` lines pin a tag *and* an `@sha256:` digest. Docker resolves the digest and ignores the
@@ -37,6 +38,11 @@ to the same minor line.
 A pinned digest never picks up upstream patches on its own. Pinning gives integrity, not freshness —
 the update process that supplies the latter (Renovate, Dependabot) is repository-level and is not
 configured here.
+
+`USER www-data` is set as late as possible, after every root-only step (installing packages,
+`chown`/`chmod` on app files, writing config into `/usr/local/etc`). `/usr/local/bin/php-entrypoint`
+is `chown`ed to `www-data` and `chmod 500`'d for the same reason: the entrypoint and the `php-fpm`
+process it execs both run as that unprivileged user, not root.
 
 ## PHP configuration
 
