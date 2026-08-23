@@ -28,7 +28,7 @@ this Dockerfile actually carries, filled in as each part of the image is built.
 
 | Rule | Lands in | |
 |---|---|---|
-| #2 Set a user | **Dockerfile** — `USER www-data` before `ENTRYPOINT`; the app process never runs as root | ✅ |
+| #2 Set a user | **Dockerfile** — `USER www-data` before `ENTRYPOINT` in the PHP-FPM stage; `nginxinc/nginx-unprivileged` as the nginx base, which drops to `USER nginx` on its own | ✅ |
 | #13 Enhance supply chain security | **Dockerfile** — pinned base images (tag + digest); refreshing the digest is a repo-level concern, out of scope for this file | ✅ |
 
 Both `FROM` lines pin a tag *and* an `@sha256:` digest. Docker resolves the digest and ignores the
