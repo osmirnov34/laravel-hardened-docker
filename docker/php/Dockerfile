@@ -111,3 +111,13 @@ ENV APP_HOME=/var/www
 WORKDIR $APP_HOME
 
 COPY --from=app-base --chown=nginx:nginx $APP_HOME/public $APP_HOME/public
+
+FROM nginx-base AS nginx-production
+
+USER nginx
+EXPOSE 8081 8443
+
+FROM nginx-base AS nginx-dev
+
+USER nginx
+EXPOSE 8080
