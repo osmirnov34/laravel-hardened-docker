@@ -94,3 +94,20 @@ USER www-data
 ENTRYPOINT ["/usr/local/bin/php-entrypoint"]
 EXPOSE 9000
 CMD ["php-fpm"]
+
+FROM nginxinc/nginx-unprivileged:alpine3.24@sha256:c3fed6436b61d2bf2201ec032c35c000871f7ed062dea5d586bc6bf4d0fdd140 AS nginx-base
+
+ARG TZ=UTC
+
+USER root
+
+RUN apk add --no-cache tzdata \
+    && cp /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo "$TZ" > /etc/timezone \
+    && apk del tzdata
+
+ENV APP_HOME=/var/www
+
+WORKDIR $APP_HOME
+
+COPY --from=app-base --chown=nginx:nginx $APP_HOME/public $APP_HOME/public
