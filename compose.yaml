@@ -24,7 +24,7 @@ services:
         build:
             context: .
             dockerfile: docker/php/Dockerfile
-            target: production
+            target: php-production
         restart: "no"
         networks:
             - backend
