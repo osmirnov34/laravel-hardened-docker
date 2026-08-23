@@ -1,0 +1,76 @@
+# Include any files or directories that you don't want to be copied to your
+# container here (e.g., local build artifacts, temporary files, etc.).
+#
+# For more help, visit the .dockerignore file reference guide at
+# https://docs.docker.com/go/build-context-dockerignore/
+
+storage/
+
+bootstrap/cache/
+
+tmp/
+
+public/build
+public/hot
+public/storage
+
+**/.cache
+**/.claude
+**/.github
+**/.idea
+**/.classpath
+**/.composer
+**/.config
+**/.dockerignore
+**/.env
+**/.env.*.local
+**/.git
+**/.gitignore
+**/.gitattributes
+**/.next
+**/.project
+**/.settings
+**/.toolstarget
+**/.vs
+**/.vscode
+**/*.*proj.user
+**/*.dbmdl
+**/*.jfm
+**/charts
+**/docker-compose*
+**/compose.y*ml
+**/compose.*.y*ml
+**/Dockerfile*
+**/node_modules
+**/npm-debug.log
+**/obj
+**/secrets.dev.yaml
+**/values.dev.yaml
+**/vendor
+**/.DS_Store
+.editorconfig
+.env.example
+.env.dev.example
+.env.prod.example
+.mcp.json
+boost.json
+LICENSE
+README.md
+Makefile
+CLAUDE.md
+AGENTS.md
+docs/
+.deptrac.cache
+psalm-baseline.xml
+psalm.xml
+deptrac.yaml
+infection.json5
+rector.php
+pint.json
+
+# Ignore development-related files and directories
+# For development environment, we will use mount bind to mount the source code to the container
+# So we don't need to copy the source code to the container for development
+tests/
+phpunit.xml
+phpunit.xml.dist
