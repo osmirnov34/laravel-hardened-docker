@@ -59,7 +59,7 @@ COPY --from=assets-builder --chown=www-data:www-data /app/public/build $APP_HOME
 
 RUN composer dump-autoload --optimize --no-dev
 
-FROM php:8.5-fpm-alpine3.24@sha256:9dc81f4086ea5402227a6bcc489b04b4baba12394624d9621faa92ed812fb8ee AS production
+FROM php:8.5-fpm-alpine3.24@sha256:9dc81f4086ea5402227a6bcc489b04b4baba12394624d9621faa92ed812fb8ee AS php-production
 
 ARG TZ=UTC
 
