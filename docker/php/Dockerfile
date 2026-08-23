@@ -87,7 +87,8 @@ COPY --from=app-base --chown=www-data:www-data $APP_HOME $APP_HOME
 COPY --from=app-base --chown=www-data:www-data $APP_HOME/storage $APP_HOME/storage-init
 
 RUN rm -f $APP_HOME/composer.lock \
-    && chmod 755 /usr/local/bin/php-entrypoint
+    && chown www-data:www-data /usr/local/bin/php-entrypoint \
+    && chmod 500 /usr/local/bin/php-entrypoint
 
 USER www-data
 ENTRYPOINT ["/usr/local/bin/php-entrypoint"]
