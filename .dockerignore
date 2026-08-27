@@ -22,8 +22,7 @@ public/storage
 **/.composer
 **/.config
 **/.dockerignore
-**/.env
-**/.env.*.local
+**/.env*
 **/.git
 **/.gitignore
 **/.gitattributes
@@ -49,9 +48,6 @@ public/storage
 **/vendor
 **/.DS_Store
 .editorconfig
-.env.example
-.env.dev.example
-.env.prod.example
 .mcp.json
 boost.json
 LICENSE
