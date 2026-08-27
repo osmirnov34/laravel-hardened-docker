@@ -1,0 +1,92 @@
+# Production overlay for compose.yaml:
+#   docker compose --env-file .env.deploy -f compose.yaml -f compose.prod.yaml up -d
+#
+# --env-file feeds the ${...} below; env_file: .env.prod feeds the container.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "${LOG_MAX_SIZE:-10m}"
+    max-file: "${LOG_MAX_FILE:-5}"
+    compress: "true"
+
+services:
+  nginx:
+    restart: on-failure:5
+    # Without !override, compose.yaml's 8081/8443 stay published alongside these.
+    # Docker writes its own iptables rules and bypasses UFW: a port closed in the
+    # host firewall is still reachable. Set NGINX_BIND=127.0.0.1 behind a host proxy.
+    ports: !override
+      - "${NGINX_BIND:-0.0.0.0}:${NGINX_HTTP_PORT:-80}:8081"
+      - "${NGINX_BIND:-0.0.0.0}:${NGINX_HTTPS_PORT:-443}:8443"
+    logging: *default-logging
+    cpus: "${NGINX_CPUS:-1.0}"
+    mem_limit: ${NGINX_MEM:-128m}
+    # Same value as mem_limit means no swap. Left unset, Docker grants swap equal to
+    # mem_limit on top of it, so the ceiling above would silently be twice as high.
+    memswap_limit: ${NGINX_MEM:-128m}
+    # master + healthcheck + one worker per HOST core: worker_processes auto reads
+    # the host's CPU count, which cpus: does not shrink. Raise on a many-core host.
+    pids_limit: ${NGINX_PIDS:-128}
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    read_only: true
+    tmpfs:
+      # Pid file and every *_temp_path the unprivileged image defines (proxy, client,
+      # fastcgi, uwsgi, scgi) are under /tmp. Logs are symlinked to stdout/stderr.
+      - /tmp:size=32M,uid=101,gid=101,mode=700,noexec,nosuid
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      # Docker's built-in profile, applied by default — pinned so it survives a
+      # daemon configured with seccomp-profile=unconfined. Needs Docker 25+.
+      - seccomp=builtin
+
+  php-fpm:
+    restart: on-failure:5
+    logging: *default-logging
+    cpus: "${PHP_CPUS:-1.0}"
+    # 256M opcache + master + 6 workers, with room for one request at php.ini's
+    # memory_limit (256M). Changing either value without the other risks a cgroup OOM.
+    mem_limit: ${PHP_MEM:-768m}
+    memswap_limit: ${PHP_MEM:-768m}
+    pids_limit: ${PHP_PIDS:-128}
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    read_only: true
+    # size: values below are untuned starting points, not measured for any real
+    # workload. Check actual usage (df -h inside the container) and adjust per mount.
+    tmpfs:
+      - /tmp:size=64M,uid=82,gid=82,mode=700,noexec,nosuid
+      # upload_tmp_dir from zz-owasp-hardening.ini. Needs its own mount: the /tmp
+      # tmpfs above lands empty, so a directory baked into the image is gone at
+      # runtime and PHP silently falls back to /tmp.
+      - /tmp/laravel-uploads:size=32M,uid=82,gid=82,mode=700,noexec,nosuid
+      # mode 700 matches the image's `chmod -R 700 storage bootstrap/cache` (Dockerfile).
+      # These five mounts land empty; Laravel regenerates their contents on first request.
+      # noexec is safe: include() reads and compiles into memory, never maps executable.
+      - /var/www/bootstrap/cache:size=16M,uid=82,gid=82,mode=700,noexec,nosuid
+      - /var/www/storage/framework/cache/data:size=32M,uid=82,gid=82,mode=700,noexec,nosuid
+      - /var/www/storage/framework/sessions:size=16M,uid=82,gid=82,mode=700,noexec,nosuid
+      - /var/www/storage/framework/views:size=32M,uid=82,gid=82,mode=700,noexec,nosuid
+      - /var/www/storage/logs:size=16M,uid=82,gid=82,mode=700,noexec,nosuid
+    env_file:
+      - .env.prod
+    volumes:
+      # The only write target that has to survive a restart (user uploads).
+      - storage_app:/var/www/storage/app
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      # Docker's built-in profile, applied by default — pinned so it survives a
+      # daemon configured with seccomp-profile=unconfined. Needs Docker 25+.
+      - seccomp=builtin
+
+volumes:
+  storage_app:
