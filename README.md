@@ -61,7 +61,7 @@ following the [OWASP PHP Configuration Cheat Sheet](https://cheatsheetseries.owa
 | Sessions | `use_strict_mode=1`, `use_only_cookies=1`, `cookie_secure=1`, `cookie_httponly=1`, `cookie_samesite=Strict`, `cookie_lifetime=14400`, `name=sessid`, `save_path`, `cache_expire=30` | ✅ |
 | Session IDs | `session.sid_length`, `session.sid_bits_per_character` | ⬜ |
 | Referer check | `session.referer_check` | ⬜ |
-| Resource limits | `memory_limit=512M`, `max_execution_time=30` | ⚠️ |
+| Resource limits | `memory_limit=256M`, `max_execution_time=30` | ⚠️ |
 | Misc | `html_errors=Off`, `report_memleaks=On`, `zend.exception_ignore_args=On` | ✅ |
 | Operational | `date.timezone=Europe/Moscow` | ➕ |
 
@@ -77,7 +77,7 @@ options cover code that calls `session_start()` directly.
 |---|---|---|---|
 | `disable_functions` | also disables `move_uploaded_file`, `mkdir`, `rmdir`, `chmod`, `rename`, `putenv` | those stay enabled | Laravel depends on them for uploads (`store()`), `Illuminate\Filesystem` (storage, atomic config and route cache) and phpdotenv. `chdir` has no such dependency and stays disabled. |
 | `upload_max_filesize` / `post_max_size` | 2M / 8M | 20M / 25M | The cheat sheet values are illustrative minimums. Size these to what the application actually accepts. |
-| `memory_limit` | 128M | 512M | Composer autoloading, Eloquent and queue workers regularly exceed 128M. |
+| `memory_limit` | 128M | 256M | Composer autoloading, Eloquent and queue workers regularly exceed 128M. Capped at 256M, not higher, so one maxed-out request still fits under the php-fpm container's `mem_limit` (768M in `compose.prod.yaml`) alongside opcache's 256M shared memory and the pool's other workers. |
 | `session.sid_length`, `session.sid_bits_per_character` | set explicitly | left at default | PHP 8.4 deprecated changing either one. The defaults already yield 128 bits of entropy, which meets the session ID requirement. |
 | `session.referer_check` | enabled | left off | PHP 8.4 deprecated any non-empty value. Cross-origin protection comes from Laravel's `VerifyCsrfToken` and `samesite=Strict`. |
 
