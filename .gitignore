@@ -1,7 +1,11 @@
 *.log
 .DS_Store
+.ai
+.claude
 .env
 .env.backup
+.env.deploy
+.env.prod
 .env.production
 .phpactor.json
 .phpunit.result.cache
