@@ -55,10 +55,17 @@ following the [OWASP PHP Configuration Cheat Sheet](https://cheatsheetseries.owa
 |---|---|---|
 | Error handling | `expose_php=Off`, `display_errors=Off`, `display_startup_errors=Off`, `log_errors=On`, `error_reporting=E_ALL`, `ignore_repeated_errors=Off` | ✅ |
 | Error log | `error_log=/proc/self/fd/2` — stderr instead of a file, per container convention | ➕ |
+| Script root | `doc_root=/var/www/public` — the script FPM runs is `doc_root` + `SCRIPT_NAME`, so a `SCRIPT_FILENAME` pointing outside `public/` is never executed | ✅ |
+| File access | `open_basedir=/var/www:/tmp` — an LFI cannot reach `/proc/self/environ`, where `APP_KEY` and the DB credentials sit | ⚠️ |
+| Fopen wrappers | `allow_url_fopen=Off`, `allow_url_include=Off` — an LFI cannot escalate to RFI | ✅ |
+| Superglobals | `variables_order="GPCS"` — `$_ENV` stays empty; the container env still reaches Laravel through `getenv()` and `$_SERVER` | ✅ |
+| Paths | `include_path`, `extension_dir` | ⬜ |
+| MIME detection | `mime_magic.magicfile` | ⬜ |
+| WebDAV | `allow_webdav_methods` | ⬜ |
 | File uploads | `file_uploads=On`, `upload_tmp_dir=/tmp/laravel-uploads`, `max_file_uploads=10` | ✅ |
 | Upload size | `upload_max_filesize=20M`, `post_max_size=25M` | ⚠️ |
 | Executables | `enable_dl=Off`, `disable_functions=` system, exec, shell_exec, passthru, phpinfo, popen, proc_open, chdir, … | ⚠️ |
-| Sessions | `use_strict_mode=1`, `use_only_cookies=1`, `cookie_secure=1`, `cookie_httponly=1`, `cookie_samesite=Strict`, `cookie_lifetime=14400`, `name=sessid`, `save_path`, `cache_expire=30` | ✅ |
+| Sessions | `use_strict_mode=1`, `use_only_cookies=1`, `cookie_secure=1`, `cookie_httponly=1`, `cookie_samesite=Strict`, `cookie_lifetime=14400`, `name=sessid`, `save_path`, `cache_expire=30`, `gc_maxlifetime=600` | ✅ |
 | Session IDs | `session.sid_length`, `session.sid_bits_per_character` | ⬜ |
 | Referer check | `session.referer_check` | ⬜ |
 | Resource limits | `memory_limit=256M`, `max_execution_time=30` | ⚠️ |
@@ -71,6 +78,13 @@ options cover code that calls `session_start()` directly.
 
 `session.cookie_domain` ships as `full.qualified.domain.name`. Replace it before deploying.
 
+`doc_root` must match nginx's `root`. They live in different files and nothing checks one against the
+other; if they diverge, php-fpm answers every request with `No input file specified.`
+
+`doc_root` follows symlinks, so `public/storage` (created by `artisan storage:link`) extends its
+reach into `storage/app/public`: a `.php` file placed there still executes. Keep uploads out of that
+directory, or have nginx refuse `.php` under `/storage/`.
+
 ### Deviations
 
 | Option | Cheat sheet | Here | Reason |
@@ -80,6 +94,10 @@ options cover code that calls `session_start()` directly.
 | `memory_limit` | 128M | 256M | Composer autoloading, Eloquent and queue workers regularly exceed 128M. Capped at 256M, not higher, so one maxed-out request still fits under the php-fpm container's `mem_limit` (768M in `compose.prod.yaml`) alongside opcache's 256M shared memory and the pool's other workers. |
 | `session.sid_length`, `session.sid_bits_per_character` | set explicitly | left at default | PHP 8.4 deprecated changing either one. The defaults already yield 128 bits of entropy, which meets the session ID requirement. |
 | `session.referer_check` | enabled | left off | PHP 8.4 deprecated any non-empty value. Cross-origin protection comes from Laravel's `VerifyCsrfToken` and `samesite=Strict`. |
+| `include_path`, `extension_dir` | set to explicit paths | left at the base image's values | Both are already correct for this image, and `extension_dir` carries a PHP ABI suffix (`…/no-debug-non-zts-20250925`) that changes with every PHP minor — pinning it turns the next base-image bump into a broken build. |
+| `mime_magic.magicfile` | set to a magic file | not set | `ext/mime_magic` was removed in PHP 5.3, so PHP 8.5 has no such directive. |
+| `allow_webdav_methods` | `Off` | not set | Not a PHP directive. It appears in the cheat sheet, but no PHP version has ever implemented it. |
+| `open_basedir` | `/path/DocumentRoot/PHP-scripts/` | `/var/www:/tmp` | Laravel reads and writes across the whole app root, so the restriction has to cover `/var/www` (app, `vendor`, `storage`) and `/tmp` (`upload_tmp_dir`, `sys_get_temp_dir`). It still denies everything outside them — most usefully `/proc/self/environ` and `/etc/passwd`. `error_log=/proc/self/fd/2` is unaffected; the check does not apply to it. |
 
 ## FPM pool
 
