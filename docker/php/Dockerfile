@@ -14,11 +14,6 @@ RUN npm run build
 
 FROM php:8.5-fpm-alpine3.24@sha256:9dc81f4086ea5402227a6bcc489b04b4baba12394624d9621faa92ed812fb8ee AS app-base
 
-RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
-    && docker-php-ext-install -j$(nproc) opcache \
-    && apk del .build-deps \
-    && rm -rf /tmp/pear
-
 COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
 
 ENV APP_HOME=/var/www
@@ -67,9 +62,6 @@ RUN apk add --no-cache fcgi tzdata \
     && cp /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo "$TZ" > /etc/timezone \
     && apk del tzdata
-
-COPY --from=app-base /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
-COPY --from=app-base /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
 
 RUN sed -i '/^user = /d' /usr/local/etc/php-fpm.d/www.conf \
     && sed -i '/^group = /d' /usr/local/etc/php-fpm.d/www.conf
