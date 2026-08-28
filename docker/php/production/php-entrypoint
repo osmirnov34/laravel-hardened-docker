@@ -1,0 +1,49 @@
+#!/bin/sh
+set -eu
+
+log() {
+    printf '[php-entrypoint] %s\n' "$*"
+}
+
+is_true() {
+    case "${1:-}" in
+        1|true|TRUE|yes|YES|on|ON) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+run_artisan() {
+    log "php artisan $*"
+    php artisan "$@"
+}
+
+if [ ! -f /var/www/artisan ]; then
+    log "No artisan file found, skipping application setup."
+    exec "$@"
+fi
+
+# storage/app is the one persistent volume and starts empty on a fresh deployment.
+# storage-init holds the directory skeleton baked into the image (Dockerfile).
+if [ -d /var/www/storage-init/app ] && [ -d /var/www/storage/app ] &&
+   [ -z "$(ls -A /var/www/storage/app 2>/dev/null || true)" ]; then
+    log "Seeding empty storage/app from the image skeleton."
+    cp -R /var/www/storage-init/app/. /var/www/storage/app
+fi
+
+# Config and route caches live in the bootstrap/cache tmpfs, which is recreated
+# empty on every container start — so this runs at boot, never at build time.
+if is_true "${LARAVEL_CACHE_CONFIG:-true}"; then
+    run_artisan config:cache
+    run_artisan route:cache
+    run_artisan view:cache
+fi
+
+# Off by default: the migrator holds no distributed lock, so two containers
+# starting at once race on the same schema. Run migrations as a one-off job
+# (docker compose run --rm php-fpm php artisan migrate --force) instead.
+if is_true "${LARAVEL_RUN_MIGRATIONS:-false}"; then
+    run_artisan migrate --force
+fi
+
+log "Entrypoint finished, starting: $*"
+exec "$@"
