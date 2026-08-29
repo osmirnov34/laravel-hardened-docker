@@ -86,6 +86,32 @@ ENTRYPOINT ["/usr/local/bin/php-entrypoint"]
 EXPOSE 9000
 CMD ["php-fpm"]
 
+FROM php-base AS php-dev
+
+RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS linux-headers \
+    && pecl install xdebug \
+    && docker-php-ext-enable xdebug \
+    && apk del .build-deps \
+    && rm -rf /tmp/pear
+
+RUN apk add --no-cache git unzip
+
+COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
+
+RUN mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
+
+COPY docker/php/dev/conf.d/ /usr/local/etc/php/conf.d/
+COPY docker/php/dev/php-fpm.d/zz-www.conf /usr/local/etc/php-fpm.d/zz-www.conf
+
+ENV HOME=$APP_HOME
+ENV COMPOSER_HOME=$APP_HOME/.composer
+
+COPY --chmod=755 docker/php/php-entrypoint /usr/local/bin/php-entrypoint
+
+ENTRYPOINT ["/usr/local/bin/php-entrypoint"]
+EXPOSE 9000
+CMD ["php-fpm"]
+
 FROM nginxinc/nginx-unprivileged:alpine3.24@sha256:c3fed6436b61d2bf2201ec032c35c000871f7ed062dea5d586bc6bf4d0fdd140 AS nginx-base
 
 ARG TZ=UTC
@@ -101,7 +127,7 @@ ENV APP_HOME=/var/www
 
 WORKDIR $APP_HOME
 
-COPY --from=app-base --chown=nginx:nginx $APP_HOME/public $APP_HOME/public
+COPY --from=app-builder --chown=nginx:nginx $APP_HOME/public $APP_HOME/public
 
 USER nginx
 
