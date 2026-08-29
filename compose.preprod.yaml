@@ -1,0 +1,40 @@
+# Local overlay on compose.prod.yaml — same hardened runtime, self-signed certs:
+#
+#   cp .env.preprod.deploy.example .env.preprod.deploy
+#   cp .env.prod.example .env.preprod        # then set APP_KEY and APP_URL
+#   docker compose --env-file .env.preprod.deploy \
+#     -f compose.yaml -f compose.prod.yaml -f compose.preprod.yaml up -d
+#
+# Structural differences only. A merely different value belongs in
+# .env.preprod.deploy, so prod hardening is inherited rather than copied.
+
+services:
+  # Delete the certificate directory to reissue.
+  certs:
+    image: alpine/openssl:3.5.4
+    # Not root: keeps the generated pair deletable without sudo.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    volumes:
+      - ${TLS_CERT_DIR:-./docker/nginx/certs/local}:/out
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        test -f /out/fullchain.pem && exit 0
+        openssl req -x509 -newkey rsa:4096 -nodes -days 365 \
+          -keyout /out/privkey.pem -out /out/fullchain.pem \
+          -subj "/CN=localhost" \
+          -addext "subjectAltName=DNS:localhost,DNS:app.localhost,IP:127.0.0.1"
+        # nginx reads these as uid 101. Only tolerable for a throwaway key.
+        chmod 644 /out/privkey.pem /out/fullchain.pem
+
+  nginx:
+    # Merges with compose.yaml's wait on php-fpm; both apply.
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+
+  php-fpm:
+    # Without !override, .env.prod stays in the list and must exist — production
+    # secrets on a development machine.
+    env_file: !override
+      - .env.preprod
