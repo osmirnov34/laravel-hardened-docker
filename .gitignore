@@ -2,11 +2,8 @@
 .DS_Store
 .ai
 .claude
-.env
-.env.backup
-.env.deploy
-.env.prod
-.env.production
+.env*
+!.env*.example
 .phpactor.json
 .phpunit.result.cache
 /.codex
@@ -17,6 +14,7 @@
 /.vscode
 /.zed
 /auth.json
+/docker/nginx/certs/local/*.pem
 /node_modules
 /public/build
 /public/fonts-manifest.dev.json
