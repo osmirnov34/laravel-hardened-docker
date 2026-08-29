@@ -1,0 +1,37 @@
+# Development overlay on compose.yaml:
+#
+#   docker compose -f compose.yaml -f compose.dev.yaml up -d
+
+services:
+  php-fpm:
+    build:
+      target: php-dev
+    # The container writes vendor/, storage/ and artisan output into the mount
+    # below. Written under any other uid, they need sudo to edit on the host.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    environment:
+      # off | debug | coverage — wins over xdebug.ini.
+      XDEBUG_MODE: "${XDEBUG_MODE:-off}"
+      # Otherwise the entrypoint caches config, routes and views at first request.
+      LARAVEL_CACHE_CONFIG: "false"
+    extra_hosts:
+      # Resolves on its own only on Docker Desktop.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - .:/var/www
+      # Per file: a directory mount hides docker-php-ext-xdebug.ini and leaves
+      # xdebug unloaded with no error.
+      - ./docker/php/dev/conf.d/99-dev.ini:/usr/local/etc/php/conf.d/99-dev.ini:ro
+      - ./docker/php/dev/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini:ro
+      - ./docker/php/dev/php-fpm.d/zz-www.conf:/usr/local/etc/php-fpm.d/zz-www.conf:ro
+
+  nginx:
+    build:
+      target: nginx-dev
+    # nginx-dev listens on 8080; compose.yaml's 8081/8443 have nothing behind them.
+    ports: !override
+      - "127.0.0.1:${NGINX_HTTP_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/"]
+    volumes:
+      - ./public:/var/www/public:ro
