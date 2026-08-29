@@ -80,7 +80,7 @@ COPY --chown=www-data:www-data --chmod=400 docker/php/production/php-fpm.d/zz-ww
 COPY --from=app-base --chown=www-data:www-data $APP_HOME $APP_HOME
 COPY --from=app-base --chown=www-data:www-data $APP_HOME/storage $APP_HOME/storage-init
 
-COPY --chown=www-data:www-data --chmod=500 docker/php/production/php-entrypoint /usr/local/bin/php-entrypoint
+COPY --chown=www-data:www-data --chmod=500 docker/php/php-entrypoint /usr/local/bin/php-entrypoint
 
 RUN rm -f $APP_HOME/composer.lock
 
