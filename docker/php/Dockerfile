@@ -28,6 +28,10 @@ ENV APP_HOME=/var/www
 
 WORKDIR $APP_HOME
 
+FROM php-base AS app-builder
+
+COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
+
 COPY composer.json composer.lock ./
 
 RUN composer install \
