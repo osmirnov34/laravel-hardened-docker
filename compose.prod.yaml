@@ -12,7 +12,7 @@ x-logging: &default-logging
 
 services:
   nginx:
-    restart: on-failure:5
+    restart: unless-stopped
     # Without !override, compose.yaml's 8081/8443 stay published alongside these.
     # Docker writes its own iptables rules and bypasses UFW: a port closed in the
     # host firewall is still reachable. Set NGINX_BIND=127.0.0.1 behind a host proxy.
@@ -46,7 +46,7 @@ services:
       - seccomp=builtin
 
   php-fpm:
-    restart: on-failure:5
+    restart: unless-stopped
     logging: *default-logging
     cpus: "${PHP_CPUS:-1.0}"
     # 256M opcache + master + 6 workers, with room for one request at php.ini's
