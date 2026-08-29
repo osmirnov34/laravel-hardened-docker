@@ -17,32 +17,57 @@ docker/
             └── zz-www.conf
 ```
 
-## Container image
+## Container
 
-Built by [`docker/php/Dockerfile`](docker/php/Dockerfile), following the
-[OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html).
-Most of its 14 rules govern the *runtime*, not the build file; the table below maps only the rules
-this Dockerfile actually carries, filled in as each part of the image is built.
+Built by [`docker/php/Dockerfile`](docker/php/Dockerfile), run by [`compose.yaml`](compose.yaml)
+under the [`compose.prod.yaml`](compose.prod.yaml) overlay:
 
-✅ carried here · ⚠️ deviation · ➕ beyond the cheat sheet
+```
+docker compose --env-file .env.deploy -f compose.yaml -f compose.prod.yaml up -d
+```
+
+All 14 rules of the
+[OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html)
+in its own numbering.
+
+✅ carried here · ⚠️ deviation · ⬜ out of scope here
 
 | Rule | Lands in | |
 |---|---|---|
-| #2 Set a user | **Dockerfile** — `USER www-data` before `ENTRYPOINT` in the PHP-FPM stage; `nginxinc/nginx-unprivileged` as the nginx base, which drops to `USER nginx` on its own | ✅ |
-| #13 Enhance supply chain security | **Dockerfile** — pinned base images (tag + digest); refreshing the digest is a repo-level concern, out of scope for this file | ✅ |
+| #0 Keep host and Docker up to date | **host** — kernel and Docker Engine updates | ⬜ |
+| #1 Do not expose the Docker daemon socket | **compose.yaml** — no `/var/run/docker.sock` mount, no TCP daemon socket | ✅ |
+| #2 Set a user | **Dockerfile** — `USER www-data` before `ENTRYPOINT`; `nginxinc/nginx-unprivileged` as the nginx base, which drops to `USER nginx` on its own | ✅ |
+| #3 Limit capabilities | **compose.prod.yaml** — `cap_drop: ALL` on both services, nothing added back; no `privileged` | ✅ |
+| #4 Prevent in-container privilege escalation | **compose.prod.yaml** — `no-new-privileges:true` on both services | ✅ |
+| #5 Be mindful of inter-container connectivity | **compose.yaml** — a user-defined `backend` bridge instead of the default; php-fpm publishes no port | ✅ |
+| #5a Port mapping with firewalls like UFW | **compose.prod.yaml** — `ports: !override` drops compose.yaml's 8081/8443; the host interface is `NGINX_BIND`, defaulting to `0.0.0.0` | ⚠️ |
+| #6 Use a Linux Security Module | **compose.prod.yaml** — `seccomp=builtin` pinned on both, surviving a daemon set to `seccomp-profile=unconfined`. No custom profile, no AppArmor | ⚠️ |
+| #7 Limit resources | **compose.prod.yaml** — `cpus`, `mem_limit`, `memswap_limit`, `pids_limit`, `ulimits.nofile`, `restart` on both services | ⚠️ |
+| #8 Set filesystem and volumes to read-only | **compose.prod.yaml** — `read_only: true` on both; every writable path is a `noexec,nosuid` tmpfs | ✅ |
+| #9 Integrate container scanning into CI/CD | **CI** — no pipeline in this repository | ⬜ |
+| #10 Keep the Docker daemon logging level at info | **host** — `log-level` in `/etc/docker/daemon.json` | ⬜ |
+| #11 Run Docker in rootless mode | **host** — a daemon installation choice; nothing here needs a root daemon | ⬜ |
+| #12 Utilize Docker Secrets | **compose.prod.yaml** — `env_file: .env.prod`, not `secrets:` | ⚠️ |
+| #13 Enhance supply chain security | **Dockerfile** — base images pinned by tag + digest | ✅ |
 
-Both `FROM` lines pin a tag *and* an `@sha256:` digest. Docker resolves the digest and ignores the
-tag, so builds are reproducible; the tag documents the intended version and bounds a future refresh
-to the same minor line.
+Both `FROM` lines pin a tag *and* an `@sha256:` digest; Docker resolves the digest and ignores the
+tag, so the tag only documents the intended version. Pinning gives integrity, not freshness — the
+process that would refresh a digest (Renovate, Dependabot) is not configured here.
 
-A pinned digest never picks up upstream patches on its own. Pinning gives integrity, not freshness —
-the update process that supplies the latter (Renovate, Dependabot) is repository-level and is not
-configured here.
+Nothing is added back after `cap_drop: ALL`, which holds only while every listener stays above port
+1024 — nginx on 8081/8443, php-fpm on 9000. Moving nginx to 80 or 443 *inside* the container would
+need `CAP_NET_BIND_SERVICE` back; publish to those ports on the host instead.
 
-`USER www-data` is set as late as possible, after every root-only step (installing packages,
-`chown`/`chmod` on app files, writing config into `/usr/local/etc`). `/usr/local/bin/php-entrypoint`
-is `chown`ed to `www-data` and `chmod 500`'d for the same reason: the entrypoint and the `php-fpm`
-process it execs both run as that unprivileged user, not root.
+### Deviations
+
+| Control | Cheat sheet | Here | Reason |
+|---|---|---|---|
+| Published port interface | `-p 127.0.0.1:8000:8000` | `${NGINX_BIND:-0.0.0.0}` | Docker writes its own iptables rules ahead of UFW, so a port closed in the host firewall stays reachable. Loopback only works behind a host-level proxy, which a reference build cannot assume; `NGINX_BIND=127.0.0.1` switches it on. |
+| Restart policy | `--restart=on-failure:<number>` | `unless-stopped` | The `on-failure` counter resets once a container stays up 10s, so it only catches a fast crash-loop — and nothing here alerts on the exited container it leaves behind. `unless-stopped` also survives a manual `docker stop` across a daemon restart, which `always` would undo. |
+| Process limit | `--ulimit nproc=<number>` | `pids_limit` | `nproc` is an RLIMIT counted per UID across the whole host, so containers sharing a UID share one budget. `pids_limit` sets the cgroup's `pids.max`, scoped to the container. |
+| seccomp | a profile narrowed to the syscalls the application needs | Docker's built-in profile, pinned | A narrowed profile has to come from a syscall trace of the real workload; guessed wrong, it breaks PHP in ways a health check does not catch. The built-in profile already blocks ~44 syscalls. |
+| AppArmor | a profile applied | not set | Docker applies `docker-default` wherever the host has AppArmor enabled; a custom profile is loaded from `/etc/apparmor.d` by the host, not shipped in a compose file. |
+| Secrets | `secrets:` | `env_file: .env.prod` | Outside Swarm a secret is just a file under `/run/secrets`, and reading one needs the `*_FILE` convention that Laravel and phpdotenv lack. The cost: `env_file` values reach `docker inspect` and `/proc/self/environ` — what `open_basedir` below is sized to deny. |
 
 ## PHP configuration
 
