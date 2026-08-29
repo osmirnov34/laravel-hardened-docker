@@ -54,7 +54,7 @@ COPY --from=assets-builder --chown=www-data:www-data /app/public/build $APP_HOME
 
 RUN composer dump-autoload --optimize --no-dev
 
-FROM php:8.5-fpm-alpine3.24@sha256:9dc81f4086ea5402227a6bcc489b04b4baba12394624d9621faa92ed812fb8ee AS php-production
+FROM php:8.5-fpm-alpine3.24@sha256:9dc81f4086ea5402227a6bcc489b04b4baba12394624d9621faa92ed812fb8ee AS php-base
 
 ARG TZ=UTC
 
@@ -66,14 +66,16 @@ RUN apk add --no-cache fcgi tzdata \
 RUN sed -i '/^user = /d' /usr/local/etc/php-fpm.d/www.conf \
     && sed -i '/^group = /d' /usr/local/etc/php-fpm.d/www.conf
 
+ENV APP_HOME=/var/www
+
+WORKDIR $APP_HOME
+
+FROM php-base AS php-production
+
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 COPY --chown=www-data:www-data --chmod=400 docker/php/production/conf.d/ /usr/local/etc/php/conf.d/
 COPY --chown=www-data:www-data --chmod=400 docker/php/production/php-fpm.d/zz-www.conf /usr/local/etc/php-fpm.d/zz-www.conf
-
-ENV APP_HOME=/var/www
-
-WORKDIR $APP_HOME
 
 COPY --from=app-base --chown=www-data:www-data $APP_HOME $APP_HOME
 COPY --from=app-base --chown=www-data:www-data $APP_HOME/storage $APP_HOME/storage-init
