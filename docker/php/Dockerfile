@@ -12,11 +12,20 @@ COPY vite.config.js ./
 
 RUN npm run build
 
-FROM php:8.5-fpm-alpine3.24@sha256:9dc81f4086ea5402227a6bcc489b04b4baba12394624d9621faa92ed812fb8ee AS app-base
+FROM php:8.5-fpm-alpine3.24@sha256:9dc81f4086ea5402227a6bcc489b04b4baba12394624d9621faa92ed812fb8ee AS php-base
 
-COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
+ARG TZ=UTC
+
+RUN apk add --no-cache fcgi tzdata \
+    && cp /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo "$TZ" > /etc/timezone \
+    && apk del tzdata
+
+RUN sed -i '/^user = /d' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i '/^group = /d' /usr/local/etc/php-fpm.d/www.conf
 
 ENV APP_HOME=/var/www
+
 WORKDIR $APP_HOME
 
 COPY composer.json composer.lock ./
