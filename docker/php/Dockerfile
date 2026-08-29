@@ -104,6 +104,8 @@ WORKDIR $APP_HOME
 
 COPY --from=app-base --chown=nginx:nginx $APP_HOME/public $APP_HOME/public
 
+USER nginx
+
 FROM nginx-base AS nginx-production
 
 USER nginx
