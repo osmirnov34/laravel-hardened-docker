@@ -77,6 +77,10 @@ services:
       - /var/www/storage/logs:size=16M,uid=82,gid=82,mode=700,noexec,nosuid
     env_file:
       - .env.prod
+    environment:
+      # The entrypoint's default, stated here so the choice is visible. Rebuilds
+      # config, route and view caches into the bootstrap/cache tmpfs at every start.
+      LARAVEL_CACHE_CONFIG: "true"
     volumes:
       # The only write target that has to survive a restart (user uploads).
       - storage_app:/var/www/storage/app
