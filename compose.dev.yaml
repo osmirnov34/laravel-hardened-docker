@@ -12,7 +12,7 @@ services:
     environment:
       # off | debug | coverage — wins over xdebug.ini.
       XDEBUG_MODE: "${XDEBUG_MODE:-off}"
-      # Otherwise the entrypoint caches config, routes and views at first request.
+      # Otherwise the entrypoint caches config, routes and views at container start.
       LARAVEL_CACHE_CONFIG: "false"
     extra_hosts:
       # Resolves on its own only on Docker Desktop.
