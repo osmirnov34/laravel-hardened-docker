@@ -138,5 +138,7 @@ EXPOSE 8081 8443
 
 FROM nginx-base AS nginx-dev
 
+COPY docker/nginx/dev/nginx.conf /etc/nginx/nginx.conf
+
 USER nginx
 EXPOSE 8080
