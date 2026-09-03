@@ -32,6 +32,10 @@ services:
       nofile:
         soft: 65536
         hard: 65536
+    volumes:
+      # ssl_certificate paths in nginx.conf. Certbot's live/ holds symlinks into
+      # ../../archive, so point this at /etc/letsencrypt itself if that is the source.
+      - ${TLS_CERT_DIR:?set it to the directory holding fullchain.pem, privkey.pem, chain.pem}:/etc/nginx/tls:ro
     read_only: true
     tmpfs:
       # Pid file and every *_temp_path the unprivileged image defines (proxy, client,
