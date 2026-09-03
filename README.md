@@ -7,6 +7,9 @@ A reference production build of **Laravel 13 on PHP 8.5**, hardened along the
 
 ```
 docker/
+├── nginx/
+│   └── prod/
+│       └── nginx.conf
 └── php/
     ├── Dockerfile
     └── production/
@@ -158,6 +161,29 @@ the `php:*-fpm` image; the `zz-` prefix loads it last. Tracked against the
 | `clear_env` | `Yes` — workers see only variables passed via `env[]` | `no` | Laravel/phpdotenv reads config through `getenv()`/`$_ENV`, and the env surface grows with every new config key or package. An `env[]` allowlist would silently break the app on a forgotten key. The boundary is enforced upstream: only inject into the container what the app should see. |
 | `security.limit_extensions` | `.php .phar` | `.php` | Nothing in this pool serves a `.phar` over FastCGI; narrowing the allowlist removes it as an attack surface. |
 | `pm`, `pm.max_children`, `pm.start_servers`, `pm.min_spare_servers`, `pm.max_spare_servers`, `pm.max_requests` | mostly no default — required; `max_requests` defaults to `0` (endless) | `dynamic`, `6`, `2`, `1`, `3`, `500` | `dynamic` scales with load better than `static`'s fixed count. Sizing is a starting point — right-size against the container's memory limit and load tests. `max_requests` recycles workers, capping any single leak's blast radius. |
+
+## Web server
+
+[`nginx/prod/nginx.conf`](docker/nginx/prod/nginx.conf) replaces the file shipped by
+[`nginxinc/nginx-unprivileged`](https://github.com/nginxinc/docker-nginx-unprivileged), without the
+`include /etc/nginx/conf.d/*.conf` that pulls in its `default.conf`.
+
+No single standard covers nginx — OWASP publishes no guide for it — so each directive is justified
+against the document covering its effect, named per row. Directives with no security bearing
+(`sendfile`, `open_file_cache`, `worker_*`) are left out of the table.
+
+| Area | Options | Source |
+|---|---|---|
+| MIME types | `include /etc/nginx/mime.types` — `nosniff` below holds the browser to the type this map sets, so the two only work as a pair | [HTTP Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#x-content-type-options) |
+| Unknown types | `default_type application/octet-stream` — the fallback when `mime.types` has no entry for the extension; nginx defaults to `text/plain` | [HTTP Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#secure-file-download-headers) |
+| Charset | `charset utf-8` — appended to the types in `charset_types`; Laravel's responses carry PHP's own `charset=UTF-8`, so this covers what nginx serves itself | [HTTP Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#content-type) |
+| Version disclosure | `server_tokens off` — `Server: nginx` in place of `nginx/1.31.4`, and no version in error pages. Dropping the header outright needs `ngx_headers_more`, which the image does not build | [HTTP Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#server) |
+| Slow HTTP | `client_body_timeout 10`, `send_timeout 10` — the cap is between read/write operations, not on the request; `keepalive_timeout 30`, `keepalive_requests 1000` bound an idle connection; `reset_timedout_connection on` closes it with RST | [Denial of Service](https://cheatsheetseries.owasp.org/cheatsheets/Denial_of_Service_Cheat_Sheet.html#rate-limiting) |
+| Rate limiting | `limit_conn_zone` and two `limit_req_zone`s keyed on `$binary_remote_addr`, enforced per location — `req_app` at 10r/s for anything reaching FPM, `req_static` at 100r/s for served files; `limit_rate 512k` past the first megabyte caps egress, per HTTP/2 stream. Ingress rate has no nginx equivalent | [Denial of Service](https://cheatsheetseries.owasp.org/cheatsheets/Denial_of_Service_Cheat_Sheet.html#rate-limiting) |
+| Security headers | `X-Frame-Options`, `X-Content-Type-Options`, `X-DNS-Prefetch-Control`, `X-Robots-Tag`, `Content-Security-Policy`, `Strict-Transport-Security`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Embedder-Policy`, `Cross-Origin-Resource-Policy`. `X-XSS-Protection` is omitted rather than set; `Cache-Control` is left to Laravel | [HTTP Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html) |
+| TLS | `ssl_protocols TLSv1.2 TLSv1.3` with the Mozilla Intermediate cipher list verbatim — ECDHE and AEAD only, no CBC and no DHE, hence no `ssl_dhparam`. `ssl_ciphers` governs TLS 1.2 alone; 1.3 suites come from OpenSSL | [Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html#only-support-strong-protocols) · [Mozilla Intermediate](https://docs.tlsref.org/server-side-tls.html) |
+| FastCGI | `location = /index.php` is `internal`, so PHP is reachable only through `try_files`. `fastcgi_hide_header X-Powered-By` backs up `expose_php = Off`. `fastcgi_read_timeout 40s` sits above `request_terminate_timeout 35s` and `max_execution_time 30`, leaving nginx the backstop | [HTTP Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#x-powered-by) · [Denial of Service](https://cheatsheetseries.owasp.org/cheatsheets/Denial_of_Service_Cheat_Sheet.html#rate-limiting) |
+| Access log | `access_log /var/log/nginx/access.log` — built-in `combined`; the path is the image's symlink to stdout, so retention is the `logging:` block in `compose.prod.yaml` | [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#event-attributes) |
 
 ## Performance
 
