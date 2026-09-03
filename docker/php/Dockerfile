@@ -133,6 +133,8 @@ USER nginx
 
 FROM nginx-base AS nginx-production
 
+COPY docker/nginx/prod/nginx.conf /etc/nginx/nginx.conf
+
 USER nginx
 EXPOSE 8081 8443
 
