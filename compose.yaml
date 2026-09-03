@@ -14,7 +14,7 @@ services:
             - "8081:8081"
             - "8443:8443"
         healthcheck:
-            test: [ "CMD", "wget", "--spider", "-q", "http://127.0.0.1:8081/" ]
+            test: [ "CMD", "wget", "--spider", "-q", "http://127.0.0.1:8081/health" ]
             interval: 10s
             timeout: 3s
             retries: 3
