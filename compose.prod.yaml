@@ -71,7 +71,8 @@ services:
       # upload_tmp_dir from zz-owasp-hardening.ini. Needs its own mount: the /tmp
       # tmpfs above lands empty, so a directory baked into the image is gone at
       # runtime and PHP silently falls back to /tmp.
-      - /tmp/laravel-uploads:size=32M,uid=82,gid=82,mode=700,noexec,nosuid
+      # 160M = pm.max_children (6) requests at post_max_size (25M).
+      - /tmp/laravel-uploads:size=160M,uid=82,gid=82,mode=700,noexec,nosuid
       # mode 700 matches the image's `chmod -R 700 storage bootstrap/cache` (Dockerfile).
       # These five mounts land empty; Laravel regenerates their contents on first request.
       # noexec is safe: include() reads and compiles into memory, never maps executable.
