@@ -21,12 +21,11 @@ services:
       - "${NGINX_BIND:-0.0.0.0}:${NGINX_HTTPS_PORT:-443}:8443"
     logging: *default-logging
     cpus: "${NGINX_CPUS:-1.0}"
-    mem_limit: ${NGINX_MEM:-128m}
+    mem_limit: ${NGINX_MEM:-384m}
     # Same value as mem_limit means no swap. Left unset, Docker grants swap equal to
     # mem_limit on top of it, so the ceiling above would silently be twice as high.
-    memswap_limit: ${NGINX_MEM:-128m}
-    # master + healthcheck + one worker per HOST core: worker_processes auto reads
-    # the host's CPU count, which cpus: does not shrink. Raise on a many-core host.
+    memswap_limit: ${NGINX_MEM:-384m}
+    # master + healthcheck + worker_processes, pinned to 1 in nginx.conf.
     pids_limit: ${NGINX_PIDS:-128}
     ulimits:
       nofile:
