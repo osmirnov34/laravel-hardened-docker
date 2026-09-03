@@ -37,9 +37,11 @@ services:
       - ${TLS_CERT_DIR:?set it to the directory holding fullchain.pem, privkey.pem, chain.pem}:/etc/nginx/tls:ro
     read_only: true
     tmpfs:
-      # Pid file and every *_temp_path the unprivileged image defines (proxy, client,
-      # fastcgi, uwsgi, scgi) are under /tmp. Logs are symlinked to stdout/stderr.
-      - /tmp:size=32M,uid=101,gid=101,mode=700,noexec,nosuid
+      # Pid file and every *_temp_path nginx.conf defines (proxy, client, fastcgi,
+      # uwsgi, scgi) are under /tmp. Logs are symlinked to stdout/stderr.
+      # 160M = pm.max_children (6) request bodies at client_max_body_size (25M);
+      # a full tmpfs counts against mem_limit.
+      - /tmp:size=160M,uid=101,gid=101,mode=700,noexec,nosuid
     cap_drop:
       - ALL
     security_opt:
