@@ -24,8 +24,10 @@ services:
           -keyout /out/privkey.pem -out /out/fullchain.pem \
           -subj "/CN=localhost" \
           -addext "subjectAltName=DNS:localhost,DNS:app.localhost,IP:127.0.0.1"
+        # ssl_trusted_certificate; self-signed, so the chain is the certificate.
+        cp /out/fullchain.pem /out/chain.pem
         # nginx reads these as uid 101. Only tolerable for a throwaway key.
-        chmod 644 /out/privkey.pem /out/fullchain.pem
+        chmod 644 /out/privkey.pem /out/fullchain.pem /out/chain.pem
 
   nginx:
     # Merges with compose.yaml's wait on php-fpm; both apply.
